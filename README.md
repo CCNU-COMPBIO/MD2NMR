@@ -14,6 +14,7 @@ conda create --name myenv --file requirements.txt
 
 
 or use pip:
+
 pip install virtualenv #create virtual environment
 
 virtualenv test_env
