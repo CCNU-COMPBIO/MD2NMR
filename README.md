@@ -12,10 +12,14 @@ The required packages are listed in 'requirements.txt'.
 To create a new environment using anaconda: (replace myenv as appropriate)
 conda create --name myenv --file requirements.txt
 
+
 or use pip:
 pip install virtualenv #create virtual environment
+
 virtualenv test_env
+
 source test_env/bin/activate
+
 pip install numpy==2.2.6 pandas==2.3.3 scikit-learn==1.7.2 scipy==1.15.3 MDAnalysis==2.9.0 matplotlib==3.4.3 
 
 ## Usage
