@@ -8,12 +8,20 @@ Subsequently modified and updated by Houfang Zhang and Yunhui Peng in July 2025,
 MD2NMR is a tool for calculating NMR relaxation observables (R1/R2/NOE/T1/T2/Tau_c) directly from MD trajectories. Initially written for calculations regarding nucleosome simulations but can be extended for other proteins/complexes. This software is subject to MIT license, with some functions imported from other repo, as noted individually in script comment section.
 
 ## Dependencies
-The required packages are listed in 'requirements.txt'.
+This package requires Python 3.10.
+All required dependencies are listed in requirements.txt.
+
+Option 1: Create a conda environment
+
 To create a new environment using anaconda: (replace myenv as appropriate)
+
 conda create --name myenv --file requirements.txt
 
+conda activate myenv
 
-or use pip:
+
+
+Option 2: Use pip with a virtual environment
 
 pip install virtualenv #create virtual environment
 
@@ -21,11 +29,19 @@ virtualenv test_env
 
 source test_env/bin/activate
 
+Install dependencies:
 pip install numpy==2.2.6 pandas==2.3.3 scikit-learn==1.7.2 scipy==1.15.3 MDAnalysis==2.9.0 matplotlib==3.4.3 
 
-Alternatively, install dependencies directly from PyPI：
+
+
+Option 3: Install the released package directly
+If your system Python version is ≥ 3.10, you can install the package directly:
 
 pip install MD2NMR
+
+Or install from a local wheel file:
+
+pip install ./dist/md2nmr-0.0.8-py3-none-any.whl
 
 ## Usage
 For single file mode (basic usage):
