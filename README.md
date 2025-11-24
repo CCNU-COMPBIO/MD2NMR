@@ -71,7 +71,7 @@ python3 ./src/md2nmr.py -t WT_rw_run1.pdb -y WT_rw_run1_2000ns_40ps.xtc
 ### Test on your own trajectory.
 Follow the steps below:
 1. Check the magnetic field parameters. In the config.py, the magnetic field unit is Tesla.
-2. Check if the trajectory file is long enough. Usually, an accurate calculation will need at least 200ns. In the config.py, make sure your traj length is longer than the number of splits of the trajectory(n_split) times the cutoff length (tau_max). e.g. for a 1000ns trajectory, recommend setting is: n_split = 50; tau_max = 1.8. See the config file for a detailed explanation of parameters.
+2. Check if the trajectory file is long enough. Usually, an accurate calculation will need at least 200ns. In the config.py, make sure your traj length is longer than the number of splits of the trajectory(n_split) times the cutoff length (tau_max), and then multiplied by two. e.g. for a 1000ns trajectory, recommend setting is: n_split = 50; tau_max = 1.8. See the config file for a detailed explanation of parameters.
 3. Check your topology file, usually this is a pdb file. Note that for different MD packages (AMBER/GROMACS/NAMD), the standard output format may be different. If your PDB file is separated into different chains, set the change the `$use_chain_ids$` in `config.py` to `"use_chain_ids = True"`; otherwise, set to False (default).
 4. Make sure the working directory `"wd"` and the output directory `"od"` are set, and you will see a prompt by the software when the trajectory is loaded. 
 
