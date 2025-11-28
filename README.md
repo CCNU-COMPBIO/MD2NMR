@@ -1,7 +1,5 @@
 # MD2NMR
-Written by TW in Jan 2023, Queen's University, Panchenko's Lab.
-For any enquiries, please contact anna.panchenko@queensu.ca. back up email: t.wei@queensu.ca 
-
+Written by Tiejun Wei in Jan 2023, Queen's University, Panchenko's Lab. 
 Subsequently modified and updated by Houfang Zhang and Yunhui Peng in July 2025, Central China Normal University. For any enquiries, please contact yunhuipeng@ccnu.edu.cn
 
 ## Description
