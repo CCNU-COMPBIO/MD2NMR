@@ -21,7 +21,7 @@ note for nucleosome we have two copies of tails, input like: [[0, 37], [136,172]
     If fit_log = True, the correlation function will be sampled at log-spaced intervals instead of linear intervals.
     n_fit_log_point specifies the total number of logarithmic sampling points.
     If n_fit_log_point = None, it will be automatically determined as:
-        n_fit_log_point = int(np.clip(np.sqrt(n_total), 20, 200)),
+        n_fit_log_point = int(np.clip(np.sqrt(n_total), 200, 500)),
     where n_total is the total number of correlation time points available.
 """
 
