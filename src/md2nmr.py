@@ -45,8 +45,10 @@ def gen_nmr_relaxation(FTOPN, FMDN, prefix):
 
     CtInName = od + prefix + '_NH_Ct.csv'
     dCtInName = od + prefix + '_NH_dCt.csv'
+    Res_InName = od + prefix + '_NH_Res.csv'
 
     DF_name = od + prefix + '_Relaxtion.csv'
+ 
         
     ## Calculate the NHVecs; Can be adapted to loop over multiple trajectories using TRAJLIST_LOC
     NHVecs = []
@@ -56,7 +58,9 @@ def gen_nmr_relaxation(FTOPN, FMDN, prefix):
     NH_Res_df = pd.DataFrame(NHRes, columns=["NH_Res"])
     NH_Res_df.to_csv(NH_Res_Fname)
     
-    dt = config.dt #we use 100 ps ## timestep of trajectories: (ps)
+    stride = getattr(config, "traj_stride", 1)
+    traj_dt = config.dt #we use 100 ps ## timestep of trajectories: (ps)
+    dt = stride * traj_dt
     print('Total frames of MD trajectory loaded: ', np.array(NHVecs).shape[1])
     n_split = config.n_split
     tau_split = np.array(NHVecs).shape[1]*dt/n_split #time (ps) of splited trajectories.
@@ -68,7 +72,7 @@ def gen_nmr_relaxation(FTOPN, FMDN, prefix):
     
     ## Calculate the correlation functions and the standard deviation in the correlation function.
     ## Save the correlation functions in a dataframe and then to a csv file for later use.
-    Ct, dCt = calc_Ct(vecs_split)
+    Ct, dCt = calc_Ct(vecs_split, dt)
     CtDF = pd.DataFrame(Ct, index = np.arange(1, Ct.shape[0]+1)*dt/1000) #this is the calculated correlation function dataframe.
     dCtDF = pd.DataFrame(dCt, index = np.arange(1, dCt.shape[0]+1)*dt/1000)
     CtDF.to_csv(CtOutFname)
@@ -76,11 +80,12 @@ def gen_nmr_relaxation(FTOPN, FMDN, prefix):
     
     CtDF = pd.read_csv(CtInName, index_col=0)
     dCtDF = pd.read_csv(dCtInName, index_col=0)
+    ResDF = pd.read_csv(Res_InName, index_col=0)
     #print(CtDF.shape)
         
     parameters_list = [4] ## A, tau_A, B, tau_B, (1-A-B), tau_C
     thresh=1.0 ## default
-    FitDF = fitCorrF(CtDF, dCtDF, config.tau_max, parameters_list, thresh)
+    FitDF = fitCorrF(CtDF, dCtDF, ResDF, config.tau_max, parameters_list, thresh)
     
     ## Calculate spectral density from the FitDF by calling the J_direct_transform function for each of the 5 frequencies.
     ## Loop over the rows of the FitDF dataframe from fitCorrF function and calcuate the spectral densities.

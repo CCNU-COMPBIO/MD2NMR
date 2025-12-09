@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import MDAnalysis as mda
+import matplotlib.pyplot as plt
 import config
 import os
 import tempfile
@@ -10,7 +11,9 @@ from MDAnalysis.analysis import align,dssp
 from scipy.optimize import curve_fit
 from math import sqrt
 from tqdm import tqdm
-
+import numpy as np
+if not hasattr(np, "Inf"):
+    np.Inf = np.inf
 
 
 def detect_resid_offset(u):
@@ -161,7 +164,7 @@ def split_NHVecs(nhvecs, dt, tau):
     
     return vecs
 
-def calc_Ct(nhvecs):
+def calc_Ct(nhvecs, dt):
 
     sh = nhvecs.shape
     nReplicates=sh[0] ; nDeltas=int(sh[1]/2) ; nResidues=sh[2]
@@ -173,9 +176,20 @@ def calc_Ct(nhvecs):
         # = = Create < vi.v'i > with dimensions (nRep, nFr, nRes, 3) -> (nRep, nFr, nRes) -> ( nRep, nRes ), then average across replicates with SEM.
         tmp = -0.5 + 1.5 * np.square( np.einsum( 'ijkl,ijkl->ijk', nhvecs[:,:-delta,...] , nhvecs[:,delta:,...] ) )
         tmp  = np.einsum( 'ijk->ik', tmp ) / nVals
-        Ct[delta-1]  = np.mean( tmp, axis=0 )
-        dCt[delta-1] = np.std( tmp, axis=0 ) / ( np.sqrt(nReplicates) - 1.0 ) #if nReplicates is 1, NH_dCt will not be defined (because variance cannot be calculated for a single sample).
-    
+        #Ct[delta-1]  = np.mean( tmp, axis=0 )
+        #dCt[delta-1] = np.std( tmp, axis=0 ) / ( np.sqrt(nReplicates) - 1.0 ) #if nReplicates is 1, NH_dCt will not be defined (because variance cannot be calculated for a single sample).
+        
+        Ct_raw = np.mean(tmp, axis=0)
+        dCt_raw = np.std( tmp, axis=0 ) / ( np.sqrt(nReplicates) - 1.0 )
+        t_ns = delta * dt/1000
+        tumbling_time = config.tumbling_time if config.tumbling_time is not None else 163.4
+        decay = np.exp(-t_ns / tumbling_time)    
+        if getattr(config, "use_align", False):
+            Ct[delta-1]  = Ct_raw * decay
+            dCt[delta-1] = dCt_raw * decay
+        else:
+            Ct[delta-1]  = Ct_raw 
+            dCt[delta-1] = dCt_raw 
     return Ct, dCt
 
 def _bound_check(func, params):
@@ -269,15 +283,14 @@ def func_exp_decay(t, *params):
 
     # The last amplitude is determined to ensure normalization
     A_last = 1.0 - sum(A_list)
-
+    
+    
     # Calculate exponential decay terms
     exp_terms = [A_list[i] * np.exp(-t / tau_list[i]) for i in range(n_exp-1)]
     exp_terms.append(A_last * np.exp(-t / tau_last))
     result = np.sum(exp_terms, axis=0)
-    if getattr(config, "use_align", False):
-        tau_ref = config.tumbling_time if config.tumbling_time is not None else 163.4
-        result = result / np.exp(-t / tau_ref)
-    return result
+    
+    return result*0.89 
   
 def exponential_fitting(x, y, dy=np.empty([]), tau_mem=50.0):
     """
@@ -323,11 +336,25 @@ def exponential_fitting(x, y, dy=np.empty([]), tau_mem=50.0):
     func = func_exp_decay
 
     # === Fitting ===
-    if dy is not None and len(dy) > 0:
-        popt, popv = curve_fit(func, x, y, p0=guess, sigma=dy, bounds=bounds, method='trf', loss='soft_l1') 
-    else:
-        popt, popv = curve_fit(func, x, y, p0=guess, bounds=bounds, loss='soft_l1')
-    
+    #if dy is not None and len(dy) > 0:
+    #    popt, popv = curve_fit(func, x, y, p0=guess, sigma=dy, bounds=bounds, method='trf', loss='soft_l1') 
+    #else:
+    #    popt, popv = curve_fit(func, x, y, p0=guess, bounds=bounds, loss='soft_l1')
+    try:
+        if dy is not None and len(dy) > 0:
+            popt, popv = curve_fit(
+                func, x, y, p0=guess, sigma=dy,
+                bounds=bounds, method='trf', loss='soft_l1'
+            )
+        else:
+            popt, popv = curve_fit(
+                func, x, y, p0=guess,
+                bounds=bounds, loss='soft_l1'
+            )
+
+    except Exception as e:
+        print(f"[Warning] curve_fit failed for data segment: {e}. Skipping this residue.")
+        return None      
     #calculate the approximated y using the fitted functions.
     #note this is for error calculations.
     ymodel=[ func(x[i], *popt) for i in range(len(x)) ] 
@@ -340,9 +367,7 @@ def exponential_fitting(x, y, dy=np.empty([]), tau_mem=50.0):
     else:
         return calc_chi(y, ymodel, dy), calc_r2(y, ymodel), popt, popv, ymodel
 
-
-
-def fitCorrF(CorrDF, dCorrDF, tau_mem, pars_l, threshold=1.0):
+def fitCorrF(CorrDF, dCorrDF,ResDF, tau_mem, pars_l, threshold=1.0):
     """
         Input Variables:
             CorrDF: Dataframe containing the correlation functions. Columns are the NH-bond vectors, rows are timesteps. 
@@ -364,7 +389,7 @@ def fitCorrF(CorrDF, dCorrDF, tau_mem, pars_l, threshold=1.0):
     errs_list=[]
     ymodel_list=[]
     covarMat_list = []
-    
+    valid_residues = []
     #loop on all residues
     #loop on all residues
     for i in CorrDF.columns:
@@ -378,7 +403,7 @@ def fitCorrF(CorrDF, dCorrDF, tau_mem, pars_l, threshold=1.0):
         if np.all(np.isnan(dy_values)):
             dy_values = []
         if config.n_fit_log_point == None:
-             n_lag_points = int(np.clip(np.sqrt(n_total), 20, 200))
+             n_lag_points = int(np.clip(np.sqrt(n_total), 200, 500))
         else: 
              n_lag_points = config.n_fit_log_point
         #print(n_lag_points)
@@ -394,14 +419,43 @@ def fitCorrF(CorrDF, dCorrDF, tau_mem, pars_l, threshold=1.0):
         y = y_values[lag_index]
         dy = dy_values[lag_index] if len(dy_values) > 0 else []
 
-        chi, r2, pars, covarMat, ymodel = exponential_fitting(x, y, dy, tau_mem)
+        #chi, r2, pars, covarMat, ymodel = exponential_fitting(x, y, dy, tau_mem)
+        fit_result = exponential_fitting(x, y, dy, tau_mem)
+        if fit_result is None:
+            print(f"[Skip] Fitting failed for residue {i}, → mark as empty.")
+            valid_residues.append(i)
+            chi_list.append(np.nan)
+            r2_list.append(np.nan)
+            #n_par = len(pars_l)
+            n_exp = config.n_exp
+            n_par = 2*(n_exp-1) + 1
+            pars_list.append([np.nan] * n_par)
+            errs_list.append([np.nan] * n_par)
+
+            names_list.append(i)
+            
+            continue
+        chi, r2, pars, covarMat, ymodel = fit_result
         
+        if r2 < 0.8 or chi > 0.2:
+            print(f"[Warning] Residue {i}: R2={r2:.3f}, Chi={chi:.3f} → mark as empty.")
+            valid_residues.append(i)
+            chi_list.append(np.nan)
+            r2_list.append(np.nan)
+            n_par = len(pars_l)
+            pars_list.append([np.nan] * n_par)
+            errs_list.append([np.nan] * n_par)
+
+            names_list.append(i)
+
+            continue                    
         A_tau_pars = pars
         
         names = ['C_a', 'tau_a', 'C_b', 'tau_b', 'C_g', 'tau_g', 'C_d', 'tau_d']
         errs = np.sqrt(np.diag(covarMat)) # this is the standard covariance error.
         
         #append the calculated params to list
+        valid_residues.append(i)
         chi_list.append(chi)
         r2_list.append(r2)
         names_list.append(names)
@@ -409,7 +463,8 @@ def fitCorrF(CorrDF, dCorrDF, tau_mem, pars_l, threshold=1.0):
         errs_list.append(errs)
         ymodel_list.append(ymodel)
         
-    FitDF = fitstoDF(NH_Res, chi_list, r2_list, pars_list, errs_list, names_list)
+    #FitDF = fitstoDF(NH_Res, chi_list, r2_list, pars_list, errs_list, names_list)
+    FitDF = fitstoDF(valid_residues, chi_list, r2_list, pars_list, errs_list, names_list)
     
     return FitDF
 
@@ -513,8 +568,7 @@ def J_direct_transform(om, consts, taus):
     Jmat = np.zeros( (ndecay, noms ) ) #Jmat is in shape [2,1] 2 is the number of fitted decay func
     for i in range(ndecay):
         Jmat[i] = consts[i]*(taus[i]*1e-9)/(1 + np.power((taus[i]*1e-9)*(om),2.))
-    
-    return (0.89)*Jmat.sum(axis=0)
+    return (2/5)*Jmat.sum(axis=0)
 
 def calc_NMR_Relax(J, fdd, fcsa, gammaH, gammaN):
     """
