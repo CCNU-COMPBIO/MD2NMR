@@ -438,7 +438,7 @@ def fitCorrF(CorrDF, dCorrDF,ResDF, tau_mem, pars_l, threshold=1.0):
         chi, r2, pars, covarMat, ymodel = fit_result
         
         if r2 < 0.8 or chi > 0.2:
-            print(f"[Warning] Residue {i}: R2={r2:.3f}, Chi={chi:.3f} → mark as empty.")
+            print(f"[Warning] Residue {i}: Fit quality is below the acceptable threshold (R2={r2:.3f}, Chi={chi:.3f}). Marking as empty.")
             valid_residues.append(i)
             chi_list.append(np.nan)
             r2_list.append(np.nan)
