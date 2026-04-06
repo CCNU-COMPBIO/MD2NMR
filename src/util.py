@@ -290,7 +290,11 @@ def func_exp_decay(t, *params):
     exp_terms.append(A_last * np.exp(-t / tau_last))
     result = np.sum(exp_terms, axis=0)
     
-    return result*0.89 
+    # return result*0.89 
+    if getattr(config, "use_align", False):
+         return result*0.89 
+    else:
+         return result
   
 def exponential_fitting(x, y, dy=np.empty([]), tau_mem=50.0):
     """
@@ -307,7 +311,8 @@ def exponential_fitting(x, y, dy=np.empty([]), tau_mem=50.0):
 
     # Initial guesses: equal amplitudes and logarithmically spaced time constants
     b1_guess = [1.0 / n_exp] * n_exp
-    t1_guess = np.logspace(np.log10(0.001), np.log10(round(tumbling_time, 0)), n_exp)
+    # t1_guess = np.logspace(np.log10(0.001), np.log10(round(tumbling_time, 0)), n_exp)
+    t1_guess = np.logspace(np.log10(0.001), np.log10(tumbling_time*0.9999), n_exp)
 
     # Construct parameter guess and bounds dynamically
     # params = [A1, tau1, A2, tau2, ..., tau_(n-1), tau_n]
@@ -568,7 +573,11 @@ def J_direct_transform(om, consts, taus):
     Jmat = np.zeros( (ndecay, noms ) ) #Jmat is in shape [2,1] 2 is the number of fitted decay func
     for i in range(ndecay):
         Jmat[i] = consts[i]*(taus[i]*1e-9)/(1 + np.power((taus[i]*1e-9)*(om),2.))
-    return (2/5)*Jmat.sum(axis=0)
+    # return (2/5)*Jmat.sum(axis=0)
+    if getattr(config, "use_align", False):
+         return (2/5)*Jmat.sum(axis=0)
+    else:
+         return 0.89*(2/5)*Jmat.sum(axis=0)
 
 def calc_NMR_Relax(J, fdd, fcsa, gammaH, gammaN):
     """
