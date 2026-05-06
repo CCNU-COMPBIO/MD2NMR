@@ -74,7 +74,7 @@ Follow the steps below:
 4. Make sure the working directory `"wd"` and the output directory `"od"` are set, and you will see a prompt by the software when the trajectory is loaded. 
 
 ### Batch Mode Protocol
-For batch mode, check the `config.py` file and modify the `prefix_list` variable in it. Note that the batch mode will generate results for all traj/topo under the working directory with a satisfied prefix. Then, in the command line, run:
+For batch mode, check the `config.py` file and modify the `prefix_list` variable in it. Note that the batch mode will generate results for all traj/topo under the working directory with a satisfied prefix. By default, batch mode uses .pdb and .xtc files as input. Then, in the command line, run:
 
 python ./src/md2nmr.py --batch=True
 
